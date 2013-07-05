@@ -1,0 +1,1 @@
+class JingoDamageType_Bomb extends DamageType;
