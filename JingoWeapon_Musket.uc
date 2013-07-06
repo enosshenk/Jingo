@@ -61,7 +61,7 @@ defaultproperties
 	MuzzleFlashPS = ParticleSystem'JingoItems.muzzlesmoke_ps'
 	
 	Begin Object Class=SkeletalMeshComponent Name=SkeletalMeshComponent0
-		SkeletalMesh = SkeletalMesh'JingoItems.musket2'
+		SkeletalMesh = SkeletalMesh'JingoItems.musket3'
 	End Object	
 	Mesh = SkeletalMeshComponent0
 	SkelMesh = SkeletalMeshComponent0

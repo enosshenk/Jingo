@@ -3,10 +3,14 @@ class JingoPawn extends GamePawn
 
 var vector CamOffset;							// Offset for the camera relative to the player location
 var vector AimPoint;							// Aimpoint relative to the player location
+var vector HalfAim;
 var AnimNodeSlot PriorityAnimSlot;
 var SkelControl_CCD_IK ArmIK;
 var bool CanIK;
 var bool UpdateIK;
+var bool JingoPawnMoving;
+var float CameraFOV;
+var rotator CameraRot;
 
 simulated event PostInitAnimTree(SkeletalMeshComponent SkelComp)
 {
@@ -25,25 +29,27 @@ function Tick(float DeltaTime)
 		ArmIK.EffectorLocation = IKLocation;
 	}
 	
+	if (VSize(Velocity) > 20)
+	{
+		JingoPawnMoving = true;
+	}
+	else
+	{
+		JingoPawnMoving = false;
+	}
+	
 	super.Tick(DeltaTime);
 }
 
 function SetAimPoint(vector AimIn)
 {
-	
 	AimPoint = GetWeaponStartTraceLocation();
 	AimPoint += vect(64,0,0) >> Rotation;
 	AimPoint += AimIn;
-}
-
-simulated function bool CalcCamera( float fDeltaTime, out vector out_CamLoc, out rotator out_CamRot, out float out_FOV )
-{
-	out_CamLoc = Location;
-	out_CamLoc += CamOffset;
-
-	out_CamRot = Rotator(Location - out_CamLoc);
 	
-	return true;
+	HalfAim = GetWeaponStartTraceLocation();
+	HalfAim += vect(32,0,0) >> Rotation;
+	HalfAim += AimIn / 2;
 }
 
 simulated singular event Rotator GetBaseAimRotation()
@@ -124,6 +130,37 @@ simulated state Dying
 		return;
 	}
 }
+
+simulated function bool CalcCamera( float fDeltaTime, out vector out_CamLoc, out rotator out_CamRot, out float out_FOV )
+{
+	local float DesiredFOV;
+	local rotator DesiredCameraRot;
+	
+	out_CamLoc = Location;
+	out_CamLoc += CamOffset;
+
+//	out_CamRot = Rotator(Location - out_CamLoc);
+	DesiredCameraRot = Rotator(HalfAim - out_CamLoc);
+	
+	if (CameraRot != DesiredCameraRot)
+	{
+		CameraRot = RLerp(CameraRot, DesiredCameraRot, 0.01);
+	}
+	
+	out_CamRot = CameraRot;
+	
+	DesiredFOV = 75 + (VSize(Location - AimPoint) / 51.2);
+	
+	if (CameraFOV != DesiredFOV)
+	{
+		CameraFOV = Lerp(CameraFOV, DesiredFOV, 0.02);
+	}
+	
+	out_FOV = CameraFOV;
+	
+	return true;
+}
+
 
 defaultproperties
 {
