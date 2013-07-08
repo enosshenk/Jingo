@@ -10,6 +10,9 @@ var() float BreakPercent;				// At what percentage do we release the formation t
 
 var array<JingoEnemyPawn_Redcoat> Redcoats;		// An array of our redcoats to handle
 var int NumSpawned;
+var vector LeaderGoal;
+var bool LeaderMoving;
+var bool LeaderAttacking;
 
 event PostBeginPlay()
 {

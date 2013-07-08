@@ -11,6 +11,11 @@ exec function GiveMeAGun()
 	Pawn.InvManager.CreateInventory(class'JingoWeapon_Franklin');
 }	
 
+exec function AmericaFuckYeah()
+{
+	Pawn.InvManager.CreateInventory(class'JingoWeapon_AmericanFlag');
+}
+
 exec function SpeechBubble(float Time, string Text)
 {
 	JingoHUD(myHUD).SpeechBubble = Text;

@@ -6,13 +6,15 @@ var JingoPawn JingoPawn;
 var string SpeechBubble;
 var float SpeechBubbleTime;
 var float SpeechBubbleTimeElapsed;
+var float ObjectiveAnnounceElapsed;
 
 simulated function DrawHUD()
 {
 	local JingoPawn P;
 	local JingoEnemyPawn_Redcoat RC;
 	local array<JingoEnemyPawn_Redcoat> Redcoats;
-	local vector ProjectLoc;
+	local vector ProjectLoc, ProjectDirection, CenterLoc, PlayerLoc, CameraLoc, CameraDirection;
+	local rotator ArrowRot, CameraRot;
 	local float TextX, TextY, TextPosX, TextPosY;
 	
 	foreach WorldInfo.AllActors(class'JingoPawn', P)
@@ -25,6 +27,15 @@ simulated function DrawHUD()
 		Redcoats.AddItem(RC);
 	}
 	
+	CenterLoc.X = Canvas.ClipX / 2;
+	CenterLoc.Y = Canvas.ClipY / 2;
+	CenterLoc.Z = -64;
+	
+	PlayerLoc = Canvas.Project(JingoPawn.Location);
+	
+	PlayerOwner.GetPlayerViewPoint(CameraLoc, CameraRot);
+	CameraDirection = Vector(CameraRot);	
+  
 	Canvas.DrawColor = RedColor;
 	Canvas.Font = class'Engine'.Static.GetSmallFont();
 	Canvas.SetPos(Canvas.ClipX * 0.1, Canvas.ClipY * 0.1);	
@@ -40,7 +51,7 @@ simulated function DrawHUD()
 	{
 		ProjectLoc = Canvas.Project(RC.Location);
 		Canvas.SetPos(ProjectLoc.X, ProjectLoc.Y);
-		Canvas.DrawText("F: " $RC.Formation$ " - L: " $RC.LeadingFormation$ " - ID: " $RC.FormationID);
+		Canvas.DrawText("ID: " $RC.FormationID$ " - State: " $RC.Controller.GetStateName()$ " - Enemy: " $RC.Controller.Enemy);
 	}	
 	
 	// Draw the crosshair
@@ -69,6 +80,41 @@ simulated function DrawHUD()
 	// Right stick
 	Canvas.SetPos((Canvas.ClipX - (Canvas.ClipX / 4)) + (JingoPlayerController(PlayerOwner).JRawJoyLookRight * 48), (Canvas.ClipY - (Canvas.ClipY / 4)) + (JingoPlayerController(PlayerOwner).JRawJoyLookUp * 48));
 	Canvas.DrawTile(Texture2D'JingoUI.stick_foreground', 128, 128, 0, 0, 128, 128, MakeLinearColor(1,1,1,1));
+	
+	// Draw objective announce text
+	if (JingoGameInfo(WorldInfo.Game).ObjectiveAnnounce)
+	{
+		Canvas.Font = Font'JingoUI.JingoFont';
+		Canvas.StrLen(JingoGameInfo(WorldInfo.Game).CurrentObjectiveName, TextX, TextY);
+		Canvas.SetPos((Canvas.ClipX / 2) - (TextX / 2), Canvas.ClipY / 4);
+		Canvas.DrawText(JingoGameInfo(WorldInfo.Game).CurrentObjectiveName);
+	
+		ObjectiveAnnounceElapsed += RenderDelta;
+		if (ObjectiveAnnounceElapsed >= 5)
+		{
+			JingoGameInfo(WorldInfo.Game).ObjectiveAnnounce = false;
+			ObjectiveAnnounceElapsed = 0;
+		}
+	}
+	
+	// Draw objective arrow
+	if (JingoGameInfo(WorldInfo.Game).CurrentObjectiveUsesLocation)
+	{
+		// Location on screen arrow
+		ProjectLoc = Canvas.Project(JingoGameInfo(WorldInfo.Game).CurrentObjectiveLocation);
+		ProjectDirection = Normal(ProjectLoc - CameraLoc);
+		
+		if (VSize(JingoPawn.Location - JingoGameInfo(WorldInfo.Game).CurrentObjectiveLocation) >= 1024)
+		{
+			ArrowRot = Rotator(ProjectLoc - PlayerLoc);
+			ArrowRot.Yaw += 16384;
+			Canvas.DrawColor = RedColor;
+			ProjectLoc.X = Clamp(ProjectLoc.X, 0, Canvas.ClipX);
+			ProjectLoc.Y = Clamp(ProjectLoc.Y, 0, Canvas.ClipY);
+			Canvas.SetPos(ProjectLoc.X - 32, ProjectLoc.Y);
+			Canvas.DrawRotatedTile(Texture2D'JingoUI.Arrow', ArrowRot, 64, 64, 0, 0, 64, 64, 0.5, 0);
+		}
+	}
 	
 	if (SpeechBubble != "")
 	{

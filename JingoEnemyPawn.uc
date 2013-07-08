@@ -1,4 +1,4 @@
-class JingoEnemyPawn extends Pawn
+class JingoEnemyPawn extends GamePawn
 	abstract;
 
 var AnimNodeSlot PriorityAnimSlot;
@@ -70,11 +70,9 @@ defaultproperties
 	BlockRigidBody=true
 	LandMovementState=PlayerWalking
 	GroundSpeed=200.0
-	
+	InventoryManagerClass = class'JingoGame.JingoInventoryManager'	
 	HealthMax = 100
 	Health = 100
-	
-	DrawScale3D=(X=2,Y=2,Z=2)
 
 	Begin Object Name=CollisionCylinder
 		CollisionRadius=32

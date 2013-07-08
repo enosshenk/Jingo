@@ -39,26 +39,26 @@ function vector GetFormationLocation()
 	}
 }
 
-function name GetReturnState()
-{
-	if (JingoPawn.LeadingFormation)
-	{
-		return 'Leading';
-	}
-	else
-	{
-		return 'Following';
-	}
-}
-
 function SetEnemy(Pawn E)
 {
 	Enemy = E;
 	Focus = E;
-	GoalPoint = E.Location;
-	GotoState('Moving');
 }
 
+function bool FindNavMeshPath(vector Point)
+{
+	// Clear cache and constraints (ignore recycling for the moment)
+	NavigationHandle.PathConstraintList = none;
+	NavigationHandle.PathGoalList = none;
+
+	// Create constraints
+	class'NavMeshPath_Toward'.static.TowardPoint(NavigationHandle, Point);
+	class'NavMeshGoal_At'.static.AtLocation(NavigationHandle, Point, 32);
+
+	// Find path
+	return NavigationHandle.FindPath();
+}
+	
 auto state Spawning
 {
 	Begin:		
@@ -74,57 +74,39 @@ auto state Spawning
 
 state Leading
 {
+	Begin:
+	Sleep(5);
+	if (Enemy != none)
+	{
+		GoalPoint = Enemy.Location;
+		Focus = Enemy;
+	}
+	else
+	{
+		GoalPoint = Location;
+		GoalPoint.X += -512 + Rand(512);
+		GoalPoint.Y += -512 + Rand(512);
+	}
+	GotoState('LeaderMoving');
+}
+
+state LeaderMoving
+{
 	event SeePlayer( Pawn Seen )
 	{
-		GoalPoint = Seen.Location;
 		Enemy = Seen;
 		Focus = Seen;
-		GotoState('Moving');
+		GotoState('LeadingAttack');
 	}
 	
-	event EnemyNotVisible()
+	event BeginState(Name PreviousStateName)
 	{
-		LastEnemy = Enemy;
-		Focus = none;
-		Enemy = none;
+		JingoPawn.Formation.LeaderMoving = true;
 	}
 	
-	Begin:
-		if (Enemy != none)
-		{
-			GoalPoint = Enemy.Location;
-		}
-		else
-		{
-			GoalPoint = LastEnemy.Location;
-			GoalPoint.X += -512 + rand(512);
-			GoalPoint.Y += -512 + rand(512);
-		}
-		Sleep(1);
-		Goto 'Begin';
-}
-
-state Following
-{
-	Begin:
-		GoalPoint = GetFormationLocation();
-		GotoState('Moving');
-}
-
-state Moving
-{
-   function bool FindNavMeshPath()
+	event EndState(Name PreviousStateName)
 	{
-		// Clear cache and constraints (ignore recycling for the moment)
-		NavigationHandle.PathConstraintList = none;
-		NavigationHandle.PathGoalList = none;
-
-		// Create constraints
-		class'NavMeshPath_Toward'.static.TowardPoint(NavigationHandle, GoalPoint);
-		class'NavMeshGoal_At'.static.AtLocation(NavigationHandle, GoalPoint, 32);
-
-		// Find path
-		return NavigationHandle.FindPath();
+		JingoPawn.Formation.LeaderMoving = false;
 	}
 	
 	Begin:	
@@ -136,9 +118,9 @@ state Moving
 			DrawDebugSphere(GoalPoint,16,20,0,255,0,true);
 		}
 		MoveTo(GoalPoint, ,32);
-		GotoState(GetReturnState());
+		GotoState('Leading');
 	}
-	else if( FindNavMeshPath() )
+	else if( FindNavMeshPath(GoalPoint) )
 	{
 		NavigationHandle.SetFinalDestination(GoalPoint);
 		FlushPersistentDebugLines();
@@ -158,17 +140,156 @@ state Moving
 		else
 		{
 			`log("Failure in moving path");
-			GotoState(GetReturnState());
+			GotoState('Leading');
 		}
 	}
 	else
 	{
 		//Can't path there, go back to idle
 		Sleep(1);
-		GotoState(GetReturnState());
+		GotoState('Leading');
 	}
 	goto 'Begin';		
 }
+
+state LeadingAttack
+{
+	event BeginState(Name PreviousStateName)
+	{
+		local rotator TempRot;
+		
+		JingoPawn.Formation.LeaderMoving = true;
+		TempRot = Rotator(Pawn.Location - Enemy.Location);
+		GoalPoint = Enemy.Location;
+		GoalPoint += vect(512,0,0) >> TempRot;
+	}
+	
+	event EndState(Name PreviousStateName)
+	{
+		JingoPawn.Formation.LeaderMoving = false;
+	}
+	
+	Begin:	
+	if (Pawn.ReachedPoint(GoalPoint, Pawn))
+	{
+		GotoState('Leading');
+	}
+	else
+	{
+		if( !NavigationHandle.PointReachable(GoalPoint))
+		{
+			if( FindNavMeshPath(GoalPoint) )
+			{
+				NavigationHandle.DrawPathCache(,TRUE);
+			}
+			else
+			{
+				//give up because the nav mesh failed to find a path
+				`warn("FindNavMeshPath failed to find a path to"@GoalPoint);
+				Sleep(2);
+				GotoState('Leading');
+			}   
+		}
+		else
+		{
+			// then move directly to the actor
+			MoveTo(GoalPoint);
+			FlushPersistentDebugLines();
+			DrawDebugLine(Pawn.Location,GoalPoint,0,255,0,true);
+			GotoState('Leading');
+		}
+
+		while( Pawn != None && !Pawn.ReachedPoint(GoalPoint, Pawn))
+		{	
+			if (Pawn.Health <= 0)
+			{
+				`log("Pawn death detected");
+				GotoState('Dead');
+			}
+			// move to the first node on the path
+			if( NavigationHandle.GetNextMoveLocation( TempDest, Pawn.GetCollisionRadius()) )
+			{
+				// suggest move preparation will return TRUE when the edge's
+			    // logic is getting the bot to the edge point
+					// FALSE if we should run there ourselves
+				if (!NavigationHandle.SuggestMovePreparation( TempDest,self))
+				{
+					MoveTo(TempDest);	
+					FlushPersistentDebugLines();
+					DrawDebugLine(Pawn.Location,TempDest,255,0,0,true);
+					DrawDebugSphere(TempDest,16,20,255,0,0,true);		
+					GotoState('Leading');
+				}
+			}
+			sleep(1);
+		}
+	}
+	sleep(1);
+	GotoState('Leading');	
+}
+
+state Following
+{
+	Begin:
+
+	while (Pawn != none && !Pawn.ReachedPoint(GetFormationLocation(), Pawn))
+	{
+		if( !NavigationHandle.PointReachable(GetFormationLocation()))
+		{
+			if( FindNavMeshPath(GetFormationLocation()) )
+			{
+				NavigationHandle.DrawPathCache(,TRUE);
+			}
+			else
+			{
+				//give up because the nav mesh failed to find a path
+				`warn("FindNavMeshPath failed to find a path to"@GetFormationLocation());
+				Sleep(1);
+				Goto 'Begin';
+			}   
+		}
+		else
+		{
+//			`log("Direct move");
+			// then move directly to the actor
+			MoveTo(GetFormationLocation());
+//			FlushPersistentDebugLines();
+//			DrawDebugLine(Pawn.Location,GoalPoint,0,255,0,true);
+			Goto 'Begin';
+		}
+
+		while( Pawn != None && !Pawn.ReachedPoint(GetFormationLocation(), Pawn))
+		{	
+			if (Pawn.Health <= 0)
+			{
+				`log("Pawn death detected");
+				GotoState('Dead');
+			}
+			// move to the first node on the path
+			if( NavigationHandle.GetNextMoveLocation( TempDest, Pawn.GetCollisionRadius()) )
+			{
+				// suggest move preparation will return TRUE when the edge's
+			    // logic is getting the bot to the edge point
+					// FALSE if we should run there ourselves
+				if (!NavigationHandle.SuggestMovePreparation( TempDest,self))
+				{
+//					`log("Path move");
+					MoveTo(TempDest);	
+//					FlushPersistentDebugLines();
+//					DrawDebugLine(Pawn.Location,TempDest,255,0,0,true);
+//					DrawDebugSphere(TempDest,16,20,255,0,0,true);		
+					Goto 'Begin';
+				}
+			}
+			sleep(0.5);
+		}
+		Sleep(0.5);
+		Goto 'Begin';
+	}
+	Sleep(0.5);
+	Goto 'Begin';
+}
+
 
 state Dead
 {
