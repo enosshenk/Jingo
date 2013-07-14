@@ -7,6 +7,7 @@ var string SpeechBubble;
 var float SpeechBubbleTime;
 var float SpeechBubbleTimeElapsed;
 var float ObjectiveAnnounceElapsed;
+var vector MouseLocation;
 
 simulated function DrawHUD()
 {
@@ -35,6 +36,11 @@ simulated function DrawHUD()
 	
 	PlayerOwner.GetPlayerViewPoint(CameraLoc, CameraRot);
 	CameraDirection = Vector(CameraRot);	
+  
+	if (JingoGameInfo(WorldInfo.Game).MouseControl)
+	{
+		MouseLocation = GetMouseWorldLocation();
+	}
   
 	Canvas.DrawColor = RedColor;
 	Canvas.Font = class'Engine'.Static.GetSmallFont();
@@ -169,4 +175,39 @@ simulated function DrawHUD()
 	}
 
 	super.DrawHUD();
+}
+
+function Vector GetMouseWorldLocation()
+{
+  local JingoMouseInput JingoMouseInput;
+  local Vector2D MousePosition;
+  local Vector MouseWorldOrigin, MouseWorldDirection, HitLocation, HitNormal;
+
+  // Ensure that we have a valid canvas and player owner
+  if (Canvas == None || PlayerOwner == None)
+  {
+    return Vect(0, 0, 0);
+	`log("Canvas or playerowner missing");
+  }
+
+  // Type cast to get the new player input
+  JingoMouseInput = JingoMouseInput(PlayerOwner.PlayerInput);
+
+  // Ensure that the player input is valid
+  if (JingoMouseInput == None)
+  {
+    return Vect(0, 0, 0);
+	`log("Playerinput invalid");
+  }
+
+  // We stored the mouse position as an IntPoint, but it's needed as a Vector2D
+  MousePosition.X = JingoMouseInput.MousePosition.X;
+  MousePosition.Y = JingoMouseInput.MousePosition.Y;
+  // Deproject the mouse position and store it in the cached vectors
+  Canvas.DeProject(MousePosition, MouseWorldOrigin, MouseWorldDirection);
+
+  // Perform a trace to get the actual mouse world location.
+  Trace(HitLocation, HitNormal, MouseWorldOrigin + MouseWorldDirection * 65536.f, MouseWorldOrigin , true,,,);
+  `log(HitLocation);
+  return HitLocation;
 }

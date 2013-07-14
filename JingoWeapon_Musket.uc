@@ -49,6 +49,27 @@ simulated function ProcessInstantHit(byte FiringMode, ImpactInfo Impact, optiona
 	}
 }
 
+simulated function CustomFire()
+{
+	local vector StartTrace, EndTrace, HitLocation, HitNormal, TraceExtent;
+	local actor HitActor;
+	
+	Instigator.Mesh.GetSocketWorldLocationAndRotation('WeaponTraceSocket', StartTrace);
+	EndTrace = StartTrace + vector(GetAdjustedAim(StartTrace)) * 128;
+	DrawDebugLine(StartTrace,EndTrace,255,0,0,true);
+	TraceExtent.X = 32;
+	TraceExtent.Y = 32;
+	
+	HitActor = Trace(HitLocation, HitNormal, EndTrace, StartTrace, true, TraceExtent);
+	
+	if (JingoEnemyPawn(HitActor) != none)
+	{
+		// Bashed an enemy
+		HitActor.TakeDamage(InstantHitDamage[1], Instigator.Controller, HitActor.Location * InstantHitMomentum[0], HitLocation, class'DamageType');
+	}
+	JingoPawn(Instigator).PriorityAnimSlot.PlayCustomAnimByDuration('bayonet', 0.5, 0.1, 0.1, false, true);
+}
+
 defaultproperties
 {
 	FiringStatesArray(0) = WeaponFiring
@@ -57,6 +78,12 @@ defaultproperties
 	InstantHitDamage(0) = 50
 	InstantHitMomentum(0) = 75
 	Spread(0) = 0.01
+	
+	FiringStatesArray(1) = WeaponFiring
+	WeaponFireTypes(1) = EWFT_Custom
+	FireInterval(1) = 1
+	InstantHitDamage(1) = 50
+	InstantHitMomentum(1) = 75	
 	
 	MuzzleFlashPS = ParticleSystem'JingoItems.muzzlesmoke_ps'
 	

@@ -157,11 +157,21 @@ state LeadingAttack
 	event BeginState(Name PreviousStateName)
 	{
 		local rotator TempRot;
+		local JingoEnemyPawn_Redcoat RC;
 		
 		JingoPawn.Formation.LeaderMoving = true;
 		TempRot = Rotator(Pawn.Location - Enemy.Location);
 		GoalPoint = Enemy.Location;
 		GoalPoint += vect(512,0,0) >> TempRot;
+		
+		foreach JingoPawn.Formation.Redcoats(RC)
+		{
+			if (RC.FormationID != 0)
+			{
+//				JingoAIController_Redcoat(RC.Controller).SetEnemy(Enemy);
+				JingoAIController_Redcoat(RC.Controller).GotoState('FollowingAttack');
+			}
+		}
 	}
 	
 	event EndState(Name PreviousStateName)
@@ -196,7 +206,7 @@ state LeadingAttack
 			MoveTo(GoalPoint);
 			FlushPersistentDebugLines();
 			DrawDebugLine(Pawn.Location,GoalPoint,0,255,0,true);
-			GotoState('Leading');
+			GotoState('LeadingFiring');
 		}
 
 		while( Pawn != None && !Pawn.ReachedPoint(GoalPoint, Pawn))
@@ -218,7 +228,7 @@ state LeadingAttack
 					FlushPersistentDebugLines();
 					DrawDebugLine(Pawn.Location,TempDest,255,0,0,true);
 					DrawDebugSphere(TempDest,16,20,255,0,0,true);		
-					GotoState('Leading');
+					GotoState('LeadingFiring');
 				}
 			}
 			sleep(1);
@@ -228,8 +238,52 @@ state LeadingAttack
 	GotoState('Leading');	
 }
 
+state LeadingFiring
+{
+	Begin:
+	
+	while (VSize(Pawn.Location - Enemy.Location) >= 512)
+	{
+		if (VSize(Pawn.Location - Enemy.Location) < 1500)
+		{
+			Pawn.StartFire(0);
+			Pawn.StopFire(1);
+			JingoPawn.Formation.LeaderAttacking = true;
+			Sleep(3);
+		}
+		else
+		{
+			Pawn.StopFire(0);
+			Pawn.StopFire(1);
+			JingoPawn.Formation.LeaderAttacking = false;
+			GotoState('Leading');
+		}
+	}
+	
+	if (VSize(Pawn.Location - Enemy.Location) <= 160)
+	{
+		Pawn.StopFire(0);
+		Pawn.StartFire(1);
+		Sleep(2);
+	}
+	else
+	{
+		Pawn.StopFire(0);
+		Pawn.StopFire(1);
+		JingoPawn.Formation.LeaderAttacking = false;
+		GotoState('Leading');
+	}
+}
+
 state Following
 {
+	function SetEnemy(Pawn E)
+	{
+		Enemy = E;
+		Focus = E;
+		GotoState('FollowingAttack');
+	}
+	
 	Begin:
 
 	while (Pawn != none && !Pawn.ReachedPoint(GetFormationLocation(), Pawn))
@@ -290,6 +344,98 @@ state Following
 	Goto 'Begin';
 }
 
+state FollowingAttack
+{
+	Begin:
+
+	while (Pawn != none && !Pawn.ReachedPoint(GetFormationLocation(), Pawn))
+	{
+		if( !NavigationHandle.PointReachable(GetFormationLocation()))
+		{
+			if( FindNavMeshPath(GetFormationLocation()) )
+			{
+				NavigationHandle.DrawPathCache(,TRUE);
+			}
+			else
+			{
+				//give up because the nav mesh failed to find a path
+				`warn("FindNavMeshPath failed to find a path to"@GetFormationLocation());
+				Sleep(1);
+				Goto 'Begin';
+			}   
+		}
+		else
+		{
+//			`log("Direct move");
+			// then move directly to the actor
+			MoveTo(GetFormationLocation());
+//			FlushPersistentDebugLines();
+//			DrawDebugLine(Pawn.Location,GoalPoint,0,255,0,true);
+			GotoState('FollowingFiring');
+		}
+
+		while( Pawn != None && !Pawn.ReachedPoint(GetFormationLocation(), Pawn))
+		{	
+			if (Pawn.Health <= 0)
+			{
+				`log("Pawn death detected");
+				GotoState('Dead');
+			}
+			// move to the first node on the path
+			if( NavigationHandle.GetNextMoveLocation( TempDest, Pawn.GetCollisionRadius()) )
+			{
+				// suggest move preparation will return TRUE when the edge's
+			    // logic is getting the bot to the edge point
+					// FALSE if we should run there ourselves
+				if (!NavigationHandle.SuggestMovePreparation( TempDest,self))
+				{
+//					`log("Path move");
+					MoveTo(TempDest);	
+//					FlushPersistentDebugLines();
+//					DrawDebugLine(Pawn.Location,TempDest,255,0,0,true);
+//					DrawDebugSphere(TempDest,16,20,255,0,0,true);		
+					GotoState('FollowingFiring');
+				}
+			}
+			sleep(0.5);
+		}
+		Sleep(0.5);
+		Goto 'Begin';
+	}
+	Sleep(0.5);
+	Goto 'Begin';
+}
+
+state FollowingFiring
+{
+	Begin:
+	
+	while (JingoPawn.Formation.LeaderAttacking)
+	{
+		if (VSize(Pawn.Location - Enemy.Location) < 1500 && VSize(Pawn.Location - Enemy.Location) > 160)
+		{
+			Pawn.StartFire(0);
+			Pawn.StopFire(1);
+			Sleep(3);
+		}
+		else if (VSize(Pawn.Location - Enemy.Location) < 160)
+		{
+			Pawn.StartFire(1);
+			Pawn.StopFire(0);
+			Sleep(2);		
+		}
+		else
+		{
+			Pawn.StopFire(0);
+			Pawn.StopFire(1);
+			GotoState('Following');
+		}
+	}
+	
+	Pawn.StopFire(1);
+	Pawn.StopFire(0);
+	GotoState('Following');
+}
 
 state Dead
 {

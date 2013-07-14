@@ -52,11 +52,36 @@ simulated function SetDyingPhysics()
 	self.InitRagdoll();
 }
 
+function Knockdown()
+{
+	self.InitRagdoll();
+	SetTimer(3, false, 'TermKnockdown');
+}
+
+function TermKnockdown()
+{
+	self.TermRagdoll();
+}
+
 simulated state Dying
 {
-	simulated event TakeDamage(int Damage, Controller InstigatedBy, vector HitLocation, vector Momentum, class<DamageType> DamageType, optional TraceHitInfo HitInfo, optional Actor DamageCauser)
+	event TakeDamage(int Damage, Controller EventInstigator, vector HitLocation, vector Momentum, class<DamageType> DamageType, optional TraceHitInfo HitInfo, optional Actor DamageCauser)
 	{
-		return;
+		if ( (Physics == PHYS_None) && (Momentum.Z < 0) )
+			Momentum.Z *= -1;
+
+		Velocity += 3 * momentum/(Mass + 200);
+
+		if ( damagetype == None )
+		{
+			// `warn("No damagetype for damage by "$instigatedby.pawn$" with weapon "$InstigatedBy.Pawn.Weapon);
+			DamageType = class'DamageType';
+		}
+	}
+	
+	function TakeRadiusDamage(Controller InstigatedBy, float BaseDamage, float DamageRadius, class<DamageType> DamageType, float Momentum, vector	HurtOrigin, bool bFullDamage, Actor DamageCauser, optional float DamageFalloffExponent=1.f)
+	{
+		Mesh.AddImpulse((Location - HurtOrigin) * (Momentum / 100));
 	}
 }
 	

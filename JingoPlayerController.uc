@@ -2,6 +2,7 @@ class JingoPlayerController extends GamePlayerController
 	config(Game);
 
 var float JaForward, JaStrafe, JaLookUp, JaTurn, JRawJoyUp, JRawJoyRight, JRawJoyLookUp, JRawJoyLookRight, JaMouseX, JaMouseY;	
+var bool MouseControl;
 	
 exec function GiveMeAGun()
 {
@@ -25,6 +26,18 @@ exec function SpeechBubble(float Time, string Text)
 exec function ThrowBomb()
 {
 	JingoPawn(Pawn).ThrowBomb();
+}
+
+exec function ToggleControl()
+{
+	if (JingoGameInfo(WorldInfo.Game).MouseControl)
+	{
+		JingoGameInfo(WorldInfo.Game).MouseControl = false;
+	}
+	else
+	{
+		JingoGameInfo(WorldInfo.Game).MouseControl = true;
+	}
 }
 	
 state PlayerWalking
@@ -101,8 +114,15 @@ ignores SeePlayer, HearNoise, Bump;
 			bPressedJump = bSaveJump;
 			
 			// Modify the pawn aim vector
-			AimVector.X = (PlayerInput.RawJoyLookUp * -1 * 512) + Clamp(PlayerInput.aMouseY, -512, 512);
-			AimVector.Y = (PlayerInput.RawJoyLookRight * 512) + Clamp(PlayerInput.aMouseX, -512, 512);
+			if (JingoGameInfo(WorldInfo.Game).MouseControl)
+			{
+				AimVector = JingoHUD(myHUD).MouseLocation;
+			}
+			else
+			{
+				AimVector.X = PlayerInput.RawJoyLookUp * -1 * 512;
+				AimVector.Y = PlayerInput.RawJoyLookRight * 512;
+			}
 			JingoPawn(Pawn).SetAimPoint(AimVector);
 			
 			// Clone some values for debugging
@@ -145,4 +165,5 @@ function UpdateRotation( float DeltaTime )
 
 defaultproperties
 {
+	InputClass=class'JingoMouseInput'
 }

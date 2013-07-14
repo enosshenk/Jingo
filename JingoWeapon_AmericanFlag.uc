@@ -31,34 +31,28 @@ simulated function StartFire(byte FireModeNum)
 
 simulated state WeaponFiring
 {
-	event Tick(float DeltaTime)
+	simulated event BeginState( Name PreviousStateName )
 	{
 		local vector StartTrace, EndTrace, HitLocation, HitNormal, TraceExtent;
 		local actor HitActor;
 		
-//		SkelMesh.GetSocketWorldLocationAndRotation('StartTraceSocket', StartTrace);
-	//	SkelMesh.GetSocketWorldLocationAndRotation('EndTraceSocket', EndTrace);
-	
 		Instigator.Mesh.GetSocketWorldLocationAndRotation('WeaponTraceSocket', StartTrace);
 		EndTrace = StartTrace + vector(GetAdjustedAim(StartTrace)) * GetTraceRange();
-		
+		DrawDebugLine(StartTrace,EndTrace,255,0,0,true);
 		TraceExtent.X = 32;
 		TraceExtent.Y = 32;
 		
-		HitActor = Trace(HitLocation, HitNormal, EndTrace, StartTrace, , TraceExtent);
+		HitActor = Trace(HitLocation, HitNormal, EndTrace, StartTrace, true, TraceExtent);
 		
 		if (JingoEnemyPawn(HitActor) != none)
 		{
 			// Bashed an enemy
 			HitActor.TakeDamage(InstantHitDamage[0], Instigator.Controller, HitActor.Location * InstantHitMomentum[0], HitLocation, class'DamageType');
-			`log("Whacked " $HitActor);
+//			JingoEnemyPawn(HitActor).Knockdown();
+			
 		}
+		`log("Whacked " $HitActor);
 		
-		super.Tick(DeltaTime);
-	}
-	
-	simulated event BeginState( Name PreviousStateName )
-	{
 		JingoPawn(Instigator).PriorityAnimSlot.PlayCustomAnimByDuration('swingflag', 0.5, 0.1, 0.1, false, true);
 		Super.BeginState(PreviousStateName);
 	}
@@ -71,7 +65,7 @@ defaultproperties
 	FiringStatesArray(0) = WeaponFiring
 	WeaponFireTypes(0) = EWFT_Custom
 	FireInterval(0) = 0.5
-	InstantHitDamage(0) = 20
+	InstantHitDamage(0) = 50
 	InstantHitMomentum(0) = 8
 	Spread(0) = 0.05
 	

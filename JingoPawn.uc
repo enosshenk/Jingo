@@ -43,13 +43,22 @@ function Tick(float DeltaTime)
 
 function SetAimPoint(vector AimIn)
 {
-	AimPoint = GetWeaponStartTraceLocation();
-	AimPoint += vect(64,0,0) >> Rotation;
-	AimPoint += AimIn;
-	
-	HalfAim = GetWeaponStartTraceLocation();
-	HalfAim += vect(32,0,0) >> Rotation;
-	HalfAim += AimIn / 2;
+	if (!JingoGameInfo(WorldInfo.Game).MouseControl)
+	{
+		AimPoint = GetWeaponStartTraceLocation();
+		AimPoint += vect(64,0,0) >> Rotation;
+		AimPoint += AimIn;
+		
+		HalfAim = GetWeaponStartTraceLocation();
+		HalfAim += vect(32,0,0) >> Rotation;
+		HalfAim += AimIn / 2;
+	}
+	else
+	{
+		AimPoint.X = Clamp(AimIn.X, Location.X - 768, Location.X + 768);
+		AimPoint.Y = Clamp(AimIn.Y, Location.Y - 768, Location.Y + 768);
+		HalfAim = AimPoint / 2;
+	}
 }
 
 simulated singular event Rotator GetBaseAimRotation()

@@ -8,6 +8,7 @@ var string CurrentObjectiveName;
 var vector CurrentObjectiveLocation;
 var bool CurrentObjectiveUsesLocation;
 var bool ObjectiveAnnounce;
+var bool MouseControl;
 
 event PostBeginPlay()
 {
